@@ -88,7 +88,7 @@ namespace ImageCollage
         static public void Create()
         {
             Console.WriteLine("Creating Image...");
-            // Gets the converted images as a palete
+            // Gets the converted images as a palette
             List<Bitmap> convertedImages = new List<Bitmap>();
             List<string> convertedImagesPath = new List<string>();
             convertedImagesPath.AddRange(Directory.GetFiles(Properties.AppSettings.Default.ConversionDestination, string.Format("*.{0}", "png"), SearchOption.TopDirectoryOnly));
