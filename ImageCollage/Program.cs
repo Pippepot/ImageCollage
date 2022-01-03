@@ -26,6 +26,9 @@ namespace ImageCollage
             List<Bitmap> pictures = new List<Bitmap>();
             List<string> picturePaths = new List<string>();
             string[] filters = new string[] { "jpg", "jpeg", "png", "gif", "tiff", "bmp", "svg" }; // Filter only image files
+            // Caching values is faster
+            string conversionDestination = Properties.AppSettings.Default.ConversionDestination;
+            int conversionSize = Properties.AppSettings.Default.ConversionSize;
             foreach (var filter in filters)
             {
                 picturePaths.AddRange(Directory.GetFiles(Properties.AppSettings.Default.ConversionPath, string.Format("*.{0}", filter), SearchOption.TopDirectoryOnly));
@@ -35,15 +38,15 @@ namespace ImageCollage
             int j = 0; // Used for whileloop if override is false
             for (int i = 0; i < picturePaths.Count; i++)
             {
-                string fileName = Properties.AppSettings.Default.ConversionDestination + @"\conversion " + i + ".png";
-                pictures.Add(new Bitmap(Image.FromFile(picturePaths[i]), new Size(Properties.AppSettings.Default.ConversionSize, Properties.AppSettings.Default.ConversionSize)));
+                string fileName = conversionDestination + @"\conversion " + i + ".png";
+                pictures.Add(new Bitmap(Image.FromFile(picturePaths[i]), new Size(conversionSize, conversionSize)));
                 // If it should not override existing files, then check for valid filenames so the bitmap does not override
                 if (!Properties.AppSettings.Default.Override)
                 {
                     while (File.Exists(fileName))
                     {
                         j++;
-                        fileName = Properties.AppSettings.Default.ConversionDestination + @"\conversion " + j + ".png";
+                        fileName = conversionDestination + @"\conversion " + j + ".png";
                     }
                 }
                 using (MemoryStream memory = new MemoryStream())
@@ -61,22 +64,22 @@ namespace ImageCollage
                 int g = 0;
                 int b = 0;
 
-                for (int y = 0; y < Properties.AppSettings.Default.ConversionSize; y++)
+                for (int y = 0; y < conversionSize; y++)
                 {
-                    for (int x = 0; x < Properties.AppSettings.Default.ConversionSize; x++)
+                    for (int x = 0; x < conversionSize; x++)
                     {
                         r += pictures[i].GetPixel(x, y).R * pictures[i].GetPixel(x, y).R;
                         g += pictures[i].GetPixel(x, y).G * pictures[i].GetPixel(x, y).G;
                         b += pictures[i].GetPixel(x, y).B * pictures[i].GetPixel(x, y).B;
                     }
                 }
-                int pixels = Properties.AppSettings.Default.ConversionSize * Properties.AppSettings.Default.ConversionSize;
+                int pixels = conversionSize * conversionSize;
                 r = (int)Math.Sqrt(r / pixels);
                 g = (int)Math.Sqrt(g / pixels);
                 b = (int)Math.Sqrt(b / pixels);
                 File.WriteAllLines(fileName + ".meta", new string[] { r.ToString(), g.ToString(), b.ToString() } );
 
-                Console.WriteLine((int)((float)i * 100 / (float)(picturePaths.Count * Properties.AppSettings.Default.Sections)) + "%");
+                Console.WriteLine((int)((float)i * 100 / (float)picturePaths.Count) + "%");
                 Console.SetCursorPosition(0, Console.CursorTop - 1);
             }
         }
@@ -85,13 +88,18 @@ namespace ImageCollage
         /// <summary>
         /// Creates a png file by combining convertet images into a collage
         /// </summary>
-        static public void Create()
+        static public string Create()
         {
             Console.WriteLine("Creating Image...");
             // Gets the converted images as a palette
+
             List<Bitmap> convertedImages = new List<Bitmap>();
             List<string> convertedImagesPath = new List<string>();
             convertedImagesPath.AddRange(Directory.GetFiles(Properties.AppSettings.Default.ConversionDestination, string.Format("*.{0}", "png"), SearchOption.TopDirectoryOnly));
+
+            if (convertedImagesPath.Count == 0)
+                return "There are no images in the conversion destination folder";
+
             Color[] convetedImagesRGB = new Color[convertedImagesPath.Count];
             for (int i = 0; i < convertedImagesPath.Count; i++)
             {
@@ -99,13 +107,15 @@ namespace ImageCollage
                 string[] metaString = File.ReadAllLines(convertedImagesPath[i] + ".meta");
                 convetedImagesRGB[i] = Color.FromArgb(int.Parse(metaString[0]), int.Parse(metaString[1]), int.Parse(metaString[2]));
             }
-
+            // Caching values is faster
+            int convertedImageSize = convertedImages[0].Size.Width;
+            int imageSections = Properties.AppSettings.Default.Sections;
             // Declare the image which will be recreated
             Bitmap originalImage = new Bitmap(Image.FromFile(Properties.AppSettings.Default.ImagePath));
-            int sectionsWide = (int)Math.Ceiling(Properties.AppSettings.Default.Sections * ((float)originalImage.Height / (float)originalImage.Width));
+            int sectionsWide = (int)Math.Ceiling(imageSections * ((float)originalImage.Height / (float)originalImage.Width));
 
             // The final image which will be written to file as png
-            Bitmap recreatedImage = new Bitmap(originalImage, Properties.AppSettings.Default.ConversionSize * Properties.AppSettings.Default.Sections, Properties.AppSettings.Default.ConversionSize * sectionsWide);
+            Bitmap recreatedImage = new Bitmap(originalImage, convertedImageSize * imageSections, convertedImageSize * sectionsWide);
 
             // Lock the bitmap bits to memory
             Rectangle rect = new Rectangle(0, 0, recreatedImage.Width, recreatedImage.Height);
@@ -126,25 +136,25 @@ namespace ImageCollage
 
             int row = 0;
             // For every section
-            for (int section = 0; section < Properties.AppSettings.Default.Sections * sectionsWide; section++)
+            for (int section = 0; section < imageSections * sectionsWide; section++)
             {
                 // If width is reached, jump to next row
-                if (section != 0 && section % Properties.AppSettings.Default.Sections == 0)
+                if (section != 0 && section % imageSections == 0)
                 {
-                    row += rect.Width * Properties.AppSettings.Default.ConversionSize * 3 - Properties.AppSettings.Default.Sections * Properties.AppSettings.Default.ConversionSize * 3;
-                    Console.WriteLine((int)((float)section * 100 / (float)(sectionsWide * Properties.AppSettings.Default.Sections)) + "%");
+                    row += rect.Width * convertedImageSize * 3 - imageSections * convertedImageSize * 3;
+                    Console.WriteLine((int)((float)section * 100 / (float)(sectionsWide * imageSections)) + "%");
                     Console.SetCursorPosition(0, Console.CursorTop - 1);
                 }
-                int pixel = section * Properties.AppSettings.Default.ConversionSize * 3 + row;
+                int pixel = section * convertedImageSize * 3 + row;
 
                 // Get the RGB values for one section of the original image
                 int r = 0;
                 int g = 0;
                 int b = 0;
 
-                for (int y = 0; y < Properties.AppSettings.Default.ConversionSize; y++)
+                for (int y = 0; y < convertedImageSize; y++)
                 {
-                    for (int x = pixel; x < pixel + Properties.AppSettings.Default.ConversionSize * 3; x += 3) // *3 because each pixel has 3 values
+                    for (int x = pixel; x < pixel + convertedImageSize * 3; x += 3) // *3 because each pixel has 3 values
                     {
                         r += rgbValues[2 + x] * rgbValues[2 + x];
                         g += rgbValues[1 + x] * rgbValues[1 + x];
@@ -154,11 +164,11 @@ namespace ImageCollage
                     pixel += rect.Width * 3;
                 }
 
-                pixel = section * Properties.AppSettings.Default.ConversionSize * 3 + row;
+                pixel = section * convertedImageSize * 3 + row;
 
-                r = (int)Math.Sqrt(r / (Properties.AppSettings.Default.ConversionSize * Properties.AppSettings.Default.ConversionSize));
-                g = (int)Math.Sqrt(g / (Properties.AppSettings.Default.ConversionSize * Properties.AppSettings.Default.ConversionSize));
-                b = (int)Math.Sqrt(b / (Properties.AppSettings.Default.ConversionSize * Properties.AppSettings.Default.ConversionSize));
+                r = (int)Math.Sqrt(r / (convertedImageSize * convertedImageSize));
+                g = (int)Math.Sqrt(g / (convertedImageSize * convertedImageSize));
+                b = (int)Math.Sqrt(b / (convertedImageSize * convertedImageSize));
                 // Compare the average value of one section of the original image's average RGB value
                 int[] distance = new int[convertedImages.Count];
                 for (int i = 0; i < convertedImages.Count; i++) // Find distance
@@ -171,12 +181,13 @@ namespace ImageCollage
                 }
                 // Find the image with the closest RGB value
                 Bitmap closestBmp = convertedImages[Array.IndexOf(distance, distance.Min())];
+                
 
                 // Write the closest image to a variable
-                for (int y = 0; y < Properties.AppSettings.Default.ConversionSize; y++)
+                for (int y = 0; y < closestBmp.Size.Height; y++)
                 {
                     int indexX = 0;
-                    for (int x = pixel; x < pixel + Properties.AppSettings.Default.ConversionSize * 3; x += 3) // *3 because each pixel has 3 values
+                    for (int x = pixel; x < pixel + closestBmp.Size.Width * 3; x += 3) // *3 because each pixel has 3 values
                     {
                         byte red = closestBmp.GetPixel(indexX, y).R;
                         byte green = closestBmp.GetPixel(indexX, y).G;
@@ -200,12 +211,13 @@ namespace ImageCollage
 
             // Save the recreated image to file
             int j = 0;
-            string fileName = Properties.AppSettings.Default.ImageDestination + @"\Recreated.png";
+            string imageDestination = Properties.AppSettings.Default.ImageDestination;
+            string fileName = imageDestination + @"\Recreated.png";
             // Makes sure no file will be overwritten
             while (File.Exists(fileName))
             {
                 j++;
-                fileName = Properties.AppSettings.Default.ImageDestination + @"\Recreated " + j + ".png";
+                fileName = imageDestination + @"\Recreated " + j + ".png";
             }
 
             using (MemoryStream memory = new MemoryStream())
@@ -217,6 +229,8 @@ namespace ImageCollage
                     fs.Write(imageBytes, 0, imageBytes.Length);
                 }
             }
+
+            return "";
         }
     }
 }

@@ -280,7 +280,11 @@ namespace ImageCollage
                 }
 
 
-                Program.Create();
+                string result = Program.Create();
+
+                if (result != "")
+                    LogError(result);
+
                 LogSucces("Image created");
                 if (tutorialStep == "create")
                 {
