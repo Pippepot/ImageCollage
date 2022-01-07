@@ -6,4 +6,4 @@ A set of minecraft textures is included to get you started if you can't bother f
 
 Make a collage like this one!
 
-![The Wok](https://github.com/Pippepot/ImageCollage/blob/main/Images/RecreatedImages/TheWok.png)
+![The Wok](https://github.com/Pippepot/ImageCollage/blob/main/Images/RecreatedImages/The%20Wok.png)
